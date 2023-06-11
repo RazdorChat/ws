@@ -32,6 +32,7 @@ func Decode(r io.Reader, wsHeader ws.Header) (p *Payload, err error) {
 		return nil, errors.New("Malformed payload header.")
 	}
 	// Set event
+	headerParts[1] = headerParts[1][0 : len(headerParts[1])-1] // Remove trailing newline
 	p.Event = strings.Trim(headerParts[1], " ")
 	// Read body
 	p.Body = make([]byte, wsHeader.Length-int64(len(header)))
@@ -52,8 +53,6 @@ func Encode(w io.Writer, p *Payload) (n int, err error) {
 
 		}
 	}
-	i, err = w.Write([]byte{'\n'})
-	n += i
 	return n, err
 }
 
