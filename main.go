@@ -29,24 +29,31 @@ func pollConnection(conn net.Conn) (err error) {
 	const payloadDelim = '\n'
 	for {
 		r.Discard()
+		w.Flush()
+		w.ResetOp(ws.OpText)
 		// Read packet header
 		header, err = r.NextFrame()
 		// If the header can't be read, discard the unread message
 		if err != nil {
 			continue
 		}
-		if header.OpCode == ws.OpClose {
+		switch header.OpCode {
+		case ws.OpClose:
 			return io.EOF
+		case ws.OpPing:
+			w.ResetOp(ws.OpPong)
+			io.WriteString(w, "event: pong\n\n")
+			continue
 		}
 
 		// TODO: set max payload size
 		// Parse event type
 		br := bufio.NewReader(r)
 		payloadHeader, err := br.ReadString(payloadDelim)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			continue // Malformed/unterminated payload header
 		}
-		payloadHeaderParts := strings.SplitN(payloadHeader, ":", 1)
+		payloadHeaderParts := strings.SplitN(payloadHeader, ":", 2)
 		if len(payloadHeaderParts) < 2 {
 			r.Discard()
 			continue
