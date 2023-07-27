@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/gobwas/ws"
 )
 
 type Payload struct {
@@ -17,30 +15,24 @@ type Payload struct {
 
 const delim = '\n'
 
-func Decode(r io.Reader, wsHeader ws.Header) (p *Payload, err error) {
-	p = new(Payload)
-	// Parse event type
+// Decode the event from a packet
+func DecodeEvent(r io.Reader, length int, evt *string) (n int, e error) {
 	br := bufio.NewReader(r)
-	// Payload header
-	header, err := br.ReadString(delim)
-	if err != nil && err != io.EOF {
-		fmt.Println(err)
-		return nil, err
+	header, e := br.ReadString(delim)
+	if e != nil && e != io.EOF {
+		fmt.Println(e)
+		return n, e
 	}
 	headerParts := strings.SplitN(header, ":", 2)
 	if len(headerParts) < 2 {
-		return nil, errors.New("Malformed payload header.")
+		return n, errors.New("Malformed payload header.")
 	}
-	// Set event
-	headerParts[1] = headerParts[1][0 : len(headerParts[1])-1] // Remove trailing newline
-	p.Event = strings.Trim(headerParts[1], " ")
-	// Read body
-	p.Body = make([]byte, wsHeader.Length-int64(len(header)))
-	_, err = io.ReadFull(r, p.Body)
 
-	return p, err
+	*evt = strings.TrimSpace(headerParts[1])
+	return n, e
 }
 
+// Encode a full packet
 func Encode(w io.Writer, p *Payload) (n int, err error) {
 	var i int
 	i, err = io.WriteString(w, fmt.Sprintf("event: %s\n", p.Event))
@@ -48,14 +40,18 @@ func Encode(w io.Writer, p *Payload) (n int, err error) {
 	if err != nil {
 		return n, err
 	}
+	// Encode body
 	if p.Body != nil {
-		switch p.Body {
-
+		i, err = w.Write(p.Body)
+		n += i
+		if err != nil {
+			return n, err
 		}
 	}
 	return n, err
 }
 
+// Encode a packet with no body
 func EncodeEvent(w io.Writer, event string) (n int, err error) {
 	return Encode(w, &Payload{
 		Event: event})

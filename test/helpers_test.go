@@ -1,6 +1,10 @@
 package test
 
-import "github.com/gobwas/ws"
+import (
+	"log"
+
+	"github.com/gobwas/ws"
+)
 
 func wsOpCodeName(op ws.OpCode) string {
 	switch op {
@@ -16,4 +20,20 @@ func wsOpCodeName(op ws.OpCode) string {
 		return "OpPong"
 	}
 	return "unknown ws.OpCode"
+}
+
+// Panic if e != nil
+func must[T any](v T, e error) T {
+	if e != nil {
+		panic(e)
+	}
+	return v
+}
+
+// Log e if e != nil
+func should[T any](v T, e error) T {
+	if e != nil {
+		log.Println(e)
+	}
+	return v
 }

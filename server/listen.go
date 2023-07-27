@@ -1,15 +1,18 @@
 package server
 
 import (
-	"io"
+	"context"
 	"log"
 	"net"
 
+	"github.com/RazdorChat/ws/core"
+	"github.com/RazdorChat/ws/events"
 	"github.com/RazdorChat/ws/packet"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )
 
+// Listen to events on a ws conn
 func listen(conn net.Conn) (err error) {
 	defer conn.Close()
 	var (
@@ -19,35 +22,33 @@ func listen(conn net.Conn) (err error) {
 	)
 
 	for {
-		r.Discard()
-		w.Flush()
-		w.ResetOp(ws.OpText)
-		// Read frame header
+		// Read next frame
 		header, err = r.NextFrame()
 		// If the header can't be read, discard the unread message
 		if err != nil {
+			w.Flush()
 			log.Println(err)
 			continue
 		}
-		switch header.OpCode {
-		case ws.OpClose:
-			return io.EOF
-		case ws.OpPing:
-			w.ResetOp(ws.OpPong)
-			packet.EncodeEvent(w, "pong")
-			continue
-		}
-
-		payload, err := packet.Decode(r, header)
-		if err != nil {
+		evt := new(string)
+		length := int(header.Length)
+		if n, err := packet.DecodeEvent(r, length, evt); err != nil {
+			w.Flush()
 			log.Println(err)
 			continue
+		} else {
+			// Subtract decoded length
+			length -= n
 		}
 
-		// Process events
-		switch payload.Event {
-		case "ping":
-			packet.EncodeEvent(w, "pong")
+		// Prepare ctx
+		ctx := context.Background()
+		ctx = core.SetLength(ctx, length)
+		ctx = core.SetOpCode(ctx, header.OpCode)
+
+		// If a handler exists for the event, run it
+		if event := events.Events[*evt]; event != nil {
+			event.Handler(ctx, w, r)
 		}
 	}
 }
