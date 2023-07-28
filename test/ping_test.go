@@ -21,15 +21,12 @@ func TestPing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if header.OpCode != ws.OpPong {
-			t.Errorf("OpPing expects OpPong response, received %s", wsOpCodeName(header.OpCode))
-		}
+		checkOpCode(t, header.OpCode, ws.OpPong)
 		var evt string
-		should(packet.DecodeEvent(r, int(header.Length), &evt))
-
-		if evt != "pong" {
-			t.Errorf("Pong event expected, received %s", evt)
+		if _, err = packet.DecodeEvent(r, int(header.Length), &evt); err != nil {
+			t.Error(err)
 		}
+		checkEvent(t, evt, "pong")
 	})
 	t.Run("Text Ping", func(t *testing.T) {
 		r.Discard()
@@ -44,14 +41,11 @@ func TestPing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if header.OpCode != ws.OpText {
-			t.Errorf("OpText expects OpText response, received %s", wsOpCodeName(header.OpCode))
-		}
+		checkOpCode(t, header.OpCode, ws.OpText)
 		var evt string
-		should(packet.DecodeEvent(r, int(header.Length), &evt))
-
-		if evt != "pong" {
-			t.Errorf("Pong event expected, received %s", evt)
+		if _, err = packet.DecodeEvent(r, int(header.Length), &evt); err != nil {
+			t.Error(err)
 		}
+		checkEvent(t, evt, "pong")
 	})
 }
